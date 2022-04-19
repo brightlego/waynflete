@@ -5,12 +5,17 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.patches as mpatches
 import datetime
 import random
+from events import InfectEvent, CureEvent, DeimuniseEvent, Schedule, Clock
 
 NEIGHBOUR_RANGE = 5
 
 
 def randrange(hrange, centre=0):
     return (random.random() * 2 - 1) * hrange + centre
+
+
+def inverse_exp_decay(y, p):
+    return np.log(y) / np.log(1 - p)
 
 
 # Integer division but for floats as well
@@ -81,15 +86,13 @@ class BaseInfection:
     def __init__(self):
         self.time_infected = 0
         self.infected_count = 0
+        self.cure_time = random.gauss(self.RECOVER_TIME, self.RECOVER_STANDARD_DEV)
 
     def update(self):
         self.time_infected += 1
 
     def is_cured(self):
-        if self.time_infected > random.gauss(
-            self.RECOVER_TIME, self.RECOVER_STANDARD_DEV
-        ):
-            self.global_R[self] = self.infected_count
+        if self.time_infected > self.cure_time:
             return True
         else:
             return False
@@ -97,11 +100,31 @@ class BaseInfection:
     def __init_subclass__(cls):
         cls.global_R = {}
 
+    def generate_infection_events(self, neighbours):
+        events = []
+        for target in neighbours:
+            if random.random() > (1 - self.INFECT_SUCCESS_CHANCE) ** self.cure_time:
+                events.append(
+                    (InfectEvent(self, target), random.uniform(1, self.cure_time))
+                )
+        return events
+
+    def generate_cure_event(self, person):
+        return CureEvent(self, person), self.cure_time
+
+    def generate_deimunisation_event(self, imunisations):
+        return (
+            DeimuniseEvent(imunisations, self),
+            inverse_exp_decay(random.random(), self.DEIMUNISE_CHANCE),
+        )
+
     def infect(self, person):
-        if random.random() < self.INFECT_SUCCESS_CHANCE:
-            success = person.infect_with(type(self))
-            if success:
-                self.infected_count += 1
+        success = person.infect_with(type(self))
+        if success:
+            self.infected_count += 1
+
+    def submit_infected_count(self):
+        pass
 
     def __str__(self):
         return type(self).__name__
@@ -122,8 +145,11 @@ class Imunisations(set):
 
         self.imunisations_set -= infections_to_remove
 
+    def deimunise(self, infection):
+        self.imunisations_set.remove(infection)
+
     def add_infections(self, infections):
-        self.imunisations_set = self.imunisations_set.union(infections)
+        self.imunisations_set.add(infections)
 
     def __iter__(self):
         return iter(self.imunisations_set)
@@ -162,12 +188,14 @@ class Person:
             if isinstance(infection, Infection):
                 return False
 
-        for infection in self.infections_to_add:
-            if isinstance(infection, Infection):
-                return False
-
-        self.infections_to_add.add(Infection())
+        infection = Infection()
+        cure_event, time_until = infection.generate_cure_event(self)
+        self.model.register_event(cure_event, time_until)
+        self.infections.add(infection)
         self.model.person_infected(Infection)
+        events = infection.generate_infection_events(self.get_neighbours())
+        for event, time_until in events:
+            self.model.register_event(event, time_until)
         return True
 
     def check_cures(self):
@@ -179,9 +207,11 @@ class Person:
         return to_be_cured
 
     def cure(self, to_be_cured):
-        self.infections -= to_be_cured
+        self.infections.remove(to_be_cured)
         self.imunisations.add_infections(to_be_cured)
-        self.model.person_cured(to_be_cured)
+        event, time_until = to_be_cured.generate_deimunisation_event(self.imunisations)
+        self.model.register_event(event, time_until)
+        self.model.person_cured({to_be_cured})
 
     def update(self):
         if len(self.infections) > 0:
@@ -201,7 +231,11 @@ class Person:
         self.infections_to_add -= self.infections_to_add
 
     def get_neighbours(self):
-        return self.model.get_people_around(self.pos)
+        return (
+            person
+            for person in self.model.get_people_around(self.pos)
+            if person is not self
+        )
 
     def __repr__(self):
         name = "Person"
@@ -265,17 +299,23 @@ class BaseModel:
             self.init_display()
 
         self.data = {}
-        self.t = 0
+        self.clock = Clock()
+        self.schedule = Schedule(self.clock)
         self.register_infection("All")
+
+    def register_event(self, event, time_until):
+        self.schedule.register(event, time_until)
 
     def __iter__(self):
         return iter(self.people)
 
     def register_infection(self, infection):
-        self.data[infection] = self.Data(self.t)
+        self.data[infection] = self.Data(self.clock.read())
         if self.display:
-            self.r_plot[infection] = self.r_plot_ax.plot([0] * self.t)[0]
-            self.infect_plot[infection] = self.infect_plot_ax.plot([0] * self.t)[0]
+            self.r_plot[infection] = self.r_plot_ax.plot([0] * self.clock.read())[0]
+            self.infect_plot[infection] = self.infect_plot_ax.plot(
+                [0] * self.clock.read()
+            )[0]
 
     def get_random_person(self):
         return random.choice(self.people)
@@ -309,7 +349,6 @@ class BaseModel:
             self.data[infection_type].infected_count[-1] -= 1
 
     def update(self, t, display=True):
-        print(t)
         for infection in self.data:
             self.data[infection].add_new_row()
             if isinstance(infection, type) and issubclass(infection, BaseInfection):
@@ -318,11 +357,13 @@ class BaseModel:
         if display:
             self.update_display()
 
-        for person in self.people:
-            person.update()
+        self.schedule.update()
 
-        for person in self.people:
-            person.finalise_update()
+        # for person in self.people:
+        #    person.update()
+
+        # for person in self.people:
+        #    person.finalise_update()
 
         for infection in self.data:
             if infection != "All":
@@ -333,7 +374,7 @@ class BaseModel:
                 if self.data[infection].smoothed_r[-1] > self.max_r:
                     self.max_r = self.data[infection].smoothed_r[-1]
 
-        self.t += 1
+        self.clock.tick()
         if self.display:
             return list(self.r_plot.values()) + list(self.infect_plot.values())
 
@@ -405,20 +446,20 @@ class BaseModel:
         X, Y, data = self.get_heatmap_data(gran=self.gran)
         self.heatmap.set_array(data.ravel())
 
-        self.r_plot_ax.set_xlim(0, self.t)
+        self.r_plot_ax.set_xlim(0, self.clock.read())
         self.r_plot_ax.set_ylim(0, self.max_r)
 
-        self.infect_plot_ax.set_xlim(0, self.t)
+        self.infect_plot_ax.set_xlim(0, self.clock.read())
         self.infect_plot_ax.set_ylim(0, self.max_infected_count)
 
         for infection in self.data:
             if infection != "All":
                 self.r_plot[infection].set_data(
-                    np.arange(self.t + 2), self.data[infection].smoothed_r
+                    np.arange(self.clock.read() + 2), self.data[infection].smoothed_r
                 )
 
             self.infect_plot[infection].set_data(
-                np.arange(self.t + 2), self.data[infection].infected_count
+                np.arange(self.clock.read() + 2), self.data[infection].infected_count
             )
 
     def run(self, update_num, interval=100, record=False):

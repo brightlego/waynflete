@@ -33,13 +33,13 @@ class Model(base.BaseModel):
         for _ in range(p_num):
             person = self.get_random_person()
             person.infect_with(infection_type)
-            person.finalise_update()
+            # person.finalise_update()
 
 
 def main():
     m = Model(400, hwidth=20, hheight=20, gran=1)
     m.infect_random_people()
-    m.run(1000, record=True)
+    m.run(1000, record=False)
 
 
 if __name__ == "__main__":
