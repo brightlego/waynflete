@@ -1,4 +1,7 @@
 import base
+import person_hashmap
+import numpy as np
+
 
 class COVID(base.BaseInfection):
     RECOVER_TIME = 15
@@ -6,14 +9,26 @@ class COVID(base.BaseInfection):
     INFECT_SUCCESS_CHANCE = 0.01
     DEIMUNISE_CHANCE = 0.02
 
+
 class Model(base.BaseModel):
     VERSION = "1.0.4"
-    def get_people_around(self, pos):
-        people_around = set()
 
-        for person in self:
-            if person.distance(pos) < self.NEIGHBOUR_RANGE:
-                people_around.add(person)
+    def get_people_around(self, pos):
+        people_around = []
+
+        for x in np.arange(
+            pos.x - self.NEIGHBOUR_RANGE,
+            pos.x + self.NEIGHBOUR_RANGE * 2,
+            self.NEIGHBOUR_RANGE,
+        ):
+            for y in np.arange(
+                pos.y - self.NEIGHBOUR_RANGE,
+                pos.y + self.NEIGHBOUR_RANGE * 2,
+                self.NEIGHBOUR_RANGE,
+            ):
+                for person in self.people.get(base.Vector2D(x, y)):
+                    if person.distance(pos) < self.NEIGHBOUR_RANGE:
+                        people_around.append(person)
 
         return people_around
 
@@ -32,10 +47,12 @@ class Model(base.BaseModel):
             person.infect_with(infection_type)
             person.finalise_update()
 
-def main():
-    m = Model(400,hwidth=20,hheight=20, gran=1)
-    m.infect_random_people()
-    m.run(1000, record=True)
 
-if __name__=="__main__":
+def main():
+    m = Model(400, hwidth=20, hheight=20, gran=1)
+    m.infect_random_people()
+    m.run(1000, record=False)
+
+
+if __name__ == "__main__":
     main()
