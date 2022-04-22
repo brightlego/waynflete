@@ -49,6 +49,7 @@ def vary_population(
     tmin = []
     tmax = []
     tavg = []
+    results = []
     for person_num in range(pmin, pmax + pstep, pstep):
         print(person_num)
         t = []
@@ -65,8 +66,9 @@ def vary_population(
         tmin.append(min(t))
         tmax.append(max(t))
         tavg.append(sum(t) / len(t))
+        results.append(t)
 
-    return tmin, tmax, tavg
+    return tmin, tmax, tavg, results
 
 
 def vary_density(
@@ -81,6 +83,8 @@ def vary_density(
     tmin = []
     tmax = []
     tavg = []
+    results = []
+
     for density in np.arange(dmin, dmax + dstep, dstep):
         print(density)
         hheight = np.sqrt(person_num / density)
@@ -99,8 +103,9 @@ def vary_density(
         tmin.append(min(t))
         tmax.append(max(t))
         tavg.append(sum(t) / len(t))
+        results.append(t)
 
-    return tmin, tmax, tavg
+    return tmin, tmax, tavg, results
 
 
 def vary_population_const_density(
@@ -115,6 +120,7 @@ def vary_population_const_density(
     tmin = []
     tmax = []
     tavg = []
+    results = []
     for person_num in range(pmin, pmax + pstep, pstep):
         print(person_num)
         hheight = np.sqrt(person_num / density)
@@ -133,5 +139,6 @@ def vary_population_const_density(
         tmin.append(min(t))
         tmax.append(max(t))
         tavg.append(sum(t) / len(t))
+        results.append(t)
 
-    return tmin, tmax, tavg
+    return tmin, tmax, tavg, results
