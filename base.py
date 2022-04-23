@@ -7,16 +7,16 @@ import datetime
 import random
 from events import InfectEvent, CureEvent, DeimuniseEvent, Schedule, Clock
 
+import person_hashmap
+
 NEIGHBOUR_RANGE = 5
 
 
 def randrange(hrange, centre=0):
     return (random.random() * 2 - 1) * hrange + centre
 
-
 def inverse_exp_decay(y, p):
     return np.log(y) / np.log(1 - p)
-
 
 # Integer division but for floats as well
 def closest_mul(a, b):
@@ -43,7 +43,7 @@ class Vector2D(np.ndarray):
         elif attr in Vector2D.Ys:
             return self[1]
         else:
-            return super().__getattr__(attr)
+            return getattr(super(), attr)
 
     def __setattr__(self, attr, value):
         if attr in Vector2D.Xs:
@@ -284,16 +284,16 @@ class BaseModel:
 
         self.person_type = person_type
 
-        self.people = np.ndarray(person_count, dtype=person_type)
+        self.people = person_hashmap.PersonHashmap(neighbour_range)
         self.max_r = 2
         self.max_infected_count = 1
         self.max_ipp = max_ipp
         self.display = display
 
         for person in range(person_count):
-            self.people[person] = person_type(
-                self, randrange(hwidth), randrange(hheight)
-            )
+            x = randrange(hwidth)
+            y = randrange(hheight)
+            self.people.add(Person(self, x, y), Vector2D(x, y))
 
         if self.display:
             self.init_display()
@@ -318,7 +318,7 @@ class BaseModel:
             )[0]
 
     def get_random_person(self):
-        return random.choice(self.people)
+        return random.choice([person for person in self.people])
 
     def get_people_around(self, pos):
         pass
@@ -445,7 +445,6 @@ class BaseModel:
     def update_display(self):
         X, Y, data = self.get_heatmap_data(gran=self.gran)
         self.heatmap.set_array(data.ravel())
-
         self.r_plot_ax.set_xlim(0, self.clock.read())
         self.r_plot_ax.set_ylim(0, self.max_r)
 

@@ -138,7 +138,6 @@ def vary_population_const_density(
             )
         tmin.append(min(t))
         tmax.append(max(t))
-        tavg.append(sum(t) / len(t))
+        tavg.append(sum(t) / len(t)
         results.append(t)
-
     return tmin, tmax, tavg, results

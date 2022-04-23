@@ -1,4 +1,7 @@
 import base
+import person_hashmap
+import numpy as np
+
 
 
 class COVID(base.BaseInfection):
@@ -10,13 +13,22 @@ class COVID(base.BaseInfection):
 
 class Model(base.BaseModel):
     VERSION = "1.0.4"
-
     def get_people_around(self, pos):
-        people_around = set()
+        people_around = []
 
-        for person in self:
-            if person.distance(pos) < self.NEIGHBOUR_RANGE:
-                people_around.add(person)
+        for x in np.arange(
+            pos.x - self.NEIGHBOUR_RANGE,
+            pos.x + self.NEIGHBOUR_RANGE * 2,
+            self.NEIGHBOUR_RANGE,
+        ):
+            for y in np.arange(
+                pos.y - self.NEIGHBOUR_RANGE,
+                pos.y + self.NEIGHBOUR_RANGE * 2,
+                self.NEIGHBOUR_RANGE,
+            ):
+                for person in self.people.get(base.Vector2D(x, y)):
+                    if person.distance(pos) < self.NEIGHBOUR_RANGE:
+                        people_around.append(person)
 
         return people_around
 
@@ -34,6 +46,7 @@ class Model(base.BaseModel):
             person = self.get_random_person()
             person.infect_with(infection_type)
             # person.finalise_update()
+
 
 
 def main():
