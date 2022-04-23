@@ -3,6 +3,7 @@ import person_hashmap
 import numpy as np
 
 
+
 class COVID(base.BaseInfection):
     RECOVER_TIME = 15
     RECOVER_STANDARD_DEV = 3.5
@@ -12,7 +13,6 @@ class COVID(base.BaseInfection):
 
 class Model(base.BaseModel):
     VERSION = "1.0.4"
-
     def get_people_around(self, pos):
         people_around = []
 
@@ -45,7 +45,8 @@ class Model(base.BaseModel):
         for _ in range(p_num):
             person = self.get_random_person()
             person.infect_with(infection_type)
-            person.finalise_update()
+            # person.finalise_update()
+
 
 
 def main():
