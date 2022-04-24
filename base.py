@@ -15,8 +15,10 @@ NEIGHBOUR_RANGE = 5
 def randrange(hrange, centre=0):
     return (random.random() * 2 - 1) * hrange + centre
 
+
 def inverse_exp_decay(y, p):
     return np.log(y) / np.log(1 - p)
+
 
 # Integer division but for floats as well
 def closest_mul(a, b):
@@ -311,11 +313,13 @@ class BaseModel:
 
     def register_infection(self, infection):
         self.data[infection] = self.Data(self.clock.read())
+        """
         if self.display:
             self.r_plot[infection] = self.r_plot_ax.plot([0] * self.clock.read())[0]
             self.infect_plot[infection] = self.infect_plot_ax.plot(
                 [0] * self.clock.read()
             )[0]
+        """
 
     def get_random_person(self):
         return random.choice([person for person in self.people])
@@ -376,7 +380,7 @@ class BaseModel:
 
         self.clock.tick()
         if self.display:
-            return list(self.r_plot.values()) + list(self.infect_plot.values())
+            return  # list(self.r_plot.values()) + list(self.infect_plot.values())
 
     def init_display(self):
         X, Y, data = self.get_heatmap_data(gran=self.gran)  # self.NEIGHBOUR_RANGE)
@@ -384,7 +388,7 @@ class BaseModel:
         self.fig, self.ax = plt.subplots()
         # r_plot_fig, r_plot_ax = plt.subplots()
 
-        self.heatmap_ax = plt.subplot(221)
+        self.heatmap_ax = plt.subplot(111)
         self.heatmap = self.heatmap_ax.pcolormesh(
             X, Y, data, shading="auto", vmin=0, vmax=self.max_ipp, cmap="viridis"
         )
@@ -399,7 +403,7 @@ class BaseModel:
         self.heatmap_cb.set_label("Proportion of people infected")
 
         self.heatmap_ax.set_title("Heatmap of Infection in the Population")
-
+        """
         self.r_plot_ax = plt.subplot(222)
         self.r_plot = {}
         self.r_plot_ax.set_title("R Value")
@@ -413,7 +417,7 @@ class BaseModel:
         self.infect_plot_ax.set_ylabel("Number Infected")
 
         self.r_plot_ax.axhline(y=1, zorder=np.inf)
-
+        """
         plt.tight_layout()
 
     def get_heatmap_data(self, gran=NEIGHBOUR_RANGE, infection_type=None):
@@ -445,6 +449,7 @@ class BaseModel:
     def update_display(self):
         X, Y, data = self.get_heatmap_data(gran=self.gran)
         self.heatmap.set_array(data.ravel())
+        """
         self.r_plot_ax.set_xlim(0, self.clock.read())
         self.r_plot_ax.set_ylim(0, self.max_r)
 
@@ -460,20 +465,27 @@ class BaseModel:
             self.infect_plot[infection].set_data(
                 np.arange(self.clock.read() + 2), self.data[infection].infected_count
             )
+        """
 
-    def run(self, update_num, interval=100, record=False):
+    def run(self, update_num, interval=100, record=False, saveat=None, savelocation=""):
         if self.display:
             anim = FuncAnimation(
                 self.fig, self.update, frames=update_num, interval=interval
             )
-            if not record:
+            if not record and saveat is None:
                 plt.show()
-            else:
+            elif saveat is None:
                 date = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
                 filename = f"\
 videos/{date}-{__name__}-{self.VERSION}-{len(self.people)}-{2*self.hwidth}x{2*self.hheight}-{random.randint(0,1000000)}.mp4"
                 writer = FFMpegWriter(fps=1000 / interval)
                 anim.save(filename, writer=writer)
+            else:
+                id = random.randint(0, 1000000)
+                for i in range(update_num):
+                    if i in saveat:
+                        plt.savefig(f"{savelocation}/{id}-{i}.png")
+                    self.update(i)
         else:
             for i in range(update_num):
                 self.update(i, display=False)

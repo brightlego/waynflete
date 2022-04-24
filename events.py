@@ -18,6 +18,8 @@ class Schedule:
         if time_until == float("inf") or time_until == float("-inf"):
             return
         time_until = int(time_until)
+        if time_until <= 0:
+            time_until = 1
         time = self.clock.read() + time_until
         if time in self.events:
             self.events[time].append(event)
